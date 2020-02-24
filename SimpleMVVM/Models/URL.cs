@@ -13,20 +13,20 @@ namespace SimpleMVVM.Models
 {
     public class URL: DependencyObject
     {
-        public string URI
+        public string URI//Cсылка 
         {
             get { return (string)GetValue(URIProperty); }
             set { SetValue(URIProperty, value); }
         }
 
-        // Using a DependencyProperty as the backing store for URL.  This enables animation, styling, binding, etc...
+       
         public static readonly DependencyProperty URIProperty =
             DependencyProperty.Register("URI", typeof(string), typeof(URL), new PropertyMetadata(""));
 
         
 
 
-        public int? Count
+        public int? Count//Количество тэгов по ссылке
         {
             get { return (int?)GetValue(CountProperty); }
             set { SetValue(CountProperty, value);}
@@ -36,6 +36,8 @@ namespace SimpleMVVM.Models
                 DependencyProperty.Register("Count", typeof(int?), typeof(URL), new PropertyMetadata(0));
 
 
+
+        //Подсчёт количества тэгов по ссылке
 public async Task Process(CancellationTokenSource cts)
             => await Task.Run(() =>
         {
@@ -43,42 +45,39 @@ public async Task Process(CancellationTokenSource cts)
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(uri);
             request.Timeout = 2000;
             HttpWebResponse response = null;
+
+            if (cts.IsCancellationRequested)//Отмена только во время получения ответа от сервера
+            {
+
+                Application.Current.Dispatcher.Invoke(() => Count = null);
+                return;
+
+            }
+
             try
             {
                 response = (HttpWebResponse)request.GetResponse();
             }
             catch
             {
-                Application.Current.Dispatcher.Invoke(() => Count = null);
-                return;
+                
             }
+            
 
-            if (cts.IsCancellationRequested)
-            {
-                //startpos = v;
-                response.Close();
-                return;
-            }
-
-
-            using (Stream stream = response.GetResponseStream())
+            using (Stream stream = response.GetResponseStream())//Поиск тэга с использование регулряного выражения (быстро в реализации) 
             {
                 int count = 0;
-              //  Count = 0;
+
                 using (StreamReader reader = new StreamReader(stream))
                 {
 
                     string line = "";
                     while ((line = reader.ReadLine()) != null)
                     {
-                        //if (line.Contains("<a "))
-                        //{
-
-                            //count++;
+ 
                             count += Regex.Matches(line, "<a\\s").Count;
                             Application.Current.Dispatcher.InvokeAsync(() => Count = count);
-                        //}
-                        //int res=
+
                     }
                 }
                 
@@ -86,7 +85,7 @@ public async Task Process(CancellationTokenSource cts)
 
             response.Close();
         });
-        // Using a DependencyProperty as the backing store for Count.  This enables animation, styling, binding, etc...
+   
         
     }
 }

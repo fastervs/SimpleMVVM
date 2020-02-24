@@ -9,6 +9,7 @@ namespace SimpleMVVM
 {
     class Relay_Command: ICommand
     {
+        //Реализация интерфейса команды для последующего добавления метода в команду
         private Action<object> execute;
         private Func<object, bool> canExecute;
 

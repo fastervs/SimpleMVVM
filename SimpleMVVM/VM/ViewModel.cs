@@ -24,7 +24,7 @@ namespace SimpleMVVM.VM
         
         private readonly object _urlsLock= new object();
 
-        public ObservableCollection<URL> URLs { get; set; }
+        public ObservableCollection<URL> URLs { get; set; }//Коллекция загруженных из XML файла ссылок, и кол-ву тэгов по каждой
 
 
         public ViewModel()
@@ -38,14 +38,14 @@ namespace SimpleMVVM.VM
        public CancellationTokenSource cts;
 
 
-        private Relay_Command addCommand;
-        private Relay_Command addC1;
-        private Relay_Command _stop;
+        private Relay_Command _start;// Запуск анализа всех ссылок на количество тэгов
+        private Relay_Command _addURL;//Команда добавления данных из XML
+        private Relay_Command _stop;// Стоп 
 
-        private int _max = 100;
-        private int _min = 0;
-        private int _progress = 0;
-        private URL _maxtags = new URL();
+        private int _max = 100;//Максимальное значение для progressbar
+        private int _min = 0;//Минимальное значение для progressbar
+        private int _progress = 0;//Текущее значение для progressbar
+        private URL _maxtags = new URL();//Ссылка с максимальным количеством элементов
 
         public URL Maxtags
         {
@@ -87,12 +87,14 @@ namespace SimpleMVVM.VM
         }
 
 
-
+        //Запуск асинхронно анализа всех ссылок на количество тэгов
+        //Количество потоков равно количеству ссылок, так как каждый поток использует крайне малое количество процессорной мощности
+        //большая часть времени тратится на ожидание ответа от сервера
         public  async Task  Run_it()
         {
             cts=new CancellationTokenSource();
-            await Task.WhenAll(URLs.Select(e => e.Process(cts).ContinueWith(t => Progress++)).ToArray());
-            Maxtags = URLs.OrderByDescending(e => e.Count).Take(1).ToArray()[0];
+            await Task.WhenAll(URLs.Select(e => e.Process(cts).ContinueWith(t => Progress++)).ToArray());//Progressbar отображает кол-во завершенных потоков (обработанных ссылок)
+            Maxtags = URLs.OrderByDescending(e => e.Count).Take(1).ToArray()[0];//Находим ссылку с максимальным количеством тэгов из ранее проанализированных
         }
 
 
@@ -101,8 +103,8 @@ namespace SimpleMVVM.VM
         {
             get
             {
-                return addCommand ??
-                  (addCommand = new Relay_Command( async obj => await  Run_it()));
+                return _start ??
+                  (_start = new Relay_Command( async obj => await  Run_it()));
             }
         }
 
@@ -110,6 +112,7 @@ namespace SimpleMVVM.VM
         {
             get
             {
+                //Отмена обработки ссылок выдаст null для ссылки в случае отмены
                 return _stop ??
                   (_stop = new Relay_Command( obj => {
                       try
@@ -128,10 +131,11 @@ namespace SimpleMVVM.VM
         {
             get
             {
-                return addC1 ??
-                  (addC1 = new Relay_Command(obj =>
+                //Реализация добавления ссылок из XML файла
+                return _addURL ??
+                  (_addURL = new Relay_Command(obj =>
                   {
-                      var xml = XDocument.Load(@"Data\XML1.xml");
+                      var xml = XDocument.Load(@"XML1.xml");
                       int count = 0;
                       foreach (var item in  xml.Descendants("URL").Select(x => new URL { URI=(string)x.Value, Count=0}))
                       {
